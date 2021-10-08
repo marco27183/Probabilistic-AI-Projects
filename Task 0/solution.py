@@ -44,7 +44,12 @@ def log_posterior_probs(x):
     assert x.ndim == 1
 
     # TODO: enter your code here
+    log_likelihoods = np.asarray([dist.logpdf(x).sum() for dist in HYPOTHESIS_SPACE])
+    log_priors = np.asarray([np.log(prior) for prior in PRIOR_PROBS])
+    log_normalizer = logsumexp(log_likelihoods, b=PRIOR_PROBS)
 
+    log_p = log_likelihoods + log_priors - log_normalizer
+    
     assert log_p.shape == (3,)
     return log_p
 
