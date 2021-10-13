@@ -39,7 +39,8 @@ class Model(object):
         self.rng = np.random.default_rng(seed=0)
 
         # TODO: Add custom initialization for your model here if necessary
-        self.gpm = GaussianProcessRegressor(random_state=0)
+        kernel = RBF() + WhiteKernel()
+        self.gpm = GaussianProcessRegressor(kernel=kernel, random_state=0)
         self.feature_map_nystroem = Nystroem(gamma=0.2, random_state=1, n_components=20)
 
     def predict(
@@ -68,7 +69,7 @@ class Model(object):
         :param train_x: Training features as a 2d NumPy float array of shape (NUM_SAMPLES, 2)
         :param train_y: Training pollution concentrations as a 1d NumPy float array of shape (NUM_SAMPLES,)
         """
-        
+
         # x_transformed = self.feature_map_nystroem.fit_transform(train_x)
         self.gpm.fit(train_x, train_y)
 
