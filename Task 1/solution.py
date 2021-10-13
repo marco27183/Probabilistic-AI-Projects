@@ -68,7 +68,7 @@ class Model(object):
         :param train_x: Training features as a 2d NumPy float array of shape (NUM_SAMPLES, 2)
         :param train_y: Training pollution concentrations as a 1d NumPy float array of shape (NUM_SAMPLES,)
         """
-        test = 1
+        
         # x_transformed = self.feature_map_nystroem.fit_transform(train_x)
         self.gpm.fit(train_x, train_y)
 
