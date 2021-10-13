@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
+from sklearn.kernel_approximation import Nystroem
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
@@ -38,8 +39,12 @@ class Model(object):
         self.rng = np.random.default_rng(seed=0)
 
         # TODO: Add custom initialization for your model here if necessary
+        self.gpm = GaussianProcessRegressor(random_state=0)
+        self.feature_map_nystroem = Nystroem(gamma=0.2, random_state=1, n_components=20)
 
-    def predict(self, x: np.ndarray) -> typing.Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def predict(
+        self, x: np.ndarray
+    ) -> typing.Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Predict the pollution concentration for a given set of locations.
         :param x: Locations as a 2d NumPy float array of shape (NUM_SAMPLES, 2)
@@ -48,9 +53,9 @@ class Model(object):
             containing your predictions, the GP posterior mean, and the GP posterior stddev (in that order)
         """
 
+        # x_test_transformed = self.feature_map_nystroem.fit_transform(x)
         # TODO: Use your GP to estimate the posterior mean and stddev for each location here
-        gp_mean = np.zeros(x.shape[0], dtype=float)
-        gp_std = np.zeros(x.shape[0], dtype=float)
+        gp_mean, gp_std = self.gpm.predict(x, return_std=True)
 
         # TODO: Use the GP posterior to form your predictions here
         predictions = gp_mean
@@ -64,8 +69,8 @@ class Model(object):
         :param train_y: Training pollution concentrations as a 1d NumPy float array of shape (NUM_SAMPLES,)
         """
 
-        # TODO: Fit your model here
-        pass
+        # x_transformed = self.feature_map_nystroem.fit_transform(train_x)
+        self.gpm.fit(train_x, train_y)
 
 
 def cost_function(y_true: np.ndarray, y_predicted: np.ndarray) -> float:
@@ -76,7 +81,9 @@ def cost_function(y_true: np.ndarray, y_predicted: np.ndarray) -> float:
     :param y_predicted: Predicted pollution levels as a 1d NumPy float array
     :return: Total cost of all predictions as a single float
     """
-    assert y_true.ndim == 1 and y_predicted.ndim == 1 and y_true.shape == y_predicted.shape
+    assert (
+        y_true.ndim == 1 and y_predicted.ndim == 1 and y_true.shape == y_predicted.shape
+    )
 
     # Unweighted cost
     cost = (y_true - y_predicted) ** 2
@@ -98,26 +105,30 @@ def cost_function(y_true: np.ndarray, y_predicted: np.ndarray) -> float:
     return np.mean(cost * weights)
 
 
-def perform_extended_evaluation(model: Model, output_dir: str = '/results'):
+def perform_extended_evaluation(model: Model, output_dir: str = "/results"):
     """
     Visualizes the predictions of a fitted model.
     :param model: Fitted model to be visualized
     :param output_dir: Directory in which the visualizations will be stored
     """
-    print('Performing extended evaluation')
+    print("Performing extended evaluation")
     fig = plt.figure(figsize=(30, 10))
-    fig.suptitle('Extended visualization of task 1')
+    fig.suptitle("Extended visualization of task 1")
 
     # Visualize on a uniform grid over the entire coordinate system
     grid_lat, grid_lon = np.meshgrid(
-        np.linspace(0, EVALUATION_GRID_POINTS - 1, num=EVALUATION_GRID_POINTS) / EVALUATION_GRID_POINTS,
-        np.linspace(0, EVALUATION_GRID_POINTS - 1, num=EVALUATION_GRID_POINTS) / EVALUATION_GRID_POINTS,
+        np.linspace(0, EVALUATION_GRID_POINTS - 1, num=EVALUATION_GRID_POINTS)
+        / EVALUATION_GRID_POINTS,
+        np.linspace(0, EVALUATION_GRID_POINTS - 1, num=EVALUATION_GRID_POINTS)
+        / EVALUATION_GRID_POINTS,
     )
     visualization_xs = np.stack((grid_lon.flatten(), grid_lat.flatten()), axis=1)
 
     # Obtain predictions, means, and stddevs over the entire map
     predictions, gp_mean, gp_stddev = model.predict(visualization_xs)
-    predictions = np.reshape(predictions, (EVALUATION_GRID_POINTS, EVALUATION_GRID_POINTS))
+    predictions = np.reshape(
+        predictions, (EVALUATION_GRID_POINTS, EVALUATION_GRID_POINTS)
+    )
     gp_mean = np.reshape(gp_mean, (EVALUATION_GRID_POINTS, EVALUATION_GRID_POINTS))
     gp_stddev = np.reshape(gp_stddev, (EVALUATION_GRID_POINTS, EVALUATION_GRID_POINTS))
 
@@ -127,11 +138,11 @@ def perform_extended_evaluation(model: Model, output_dir: str = '/results'):
     # Plot the actual predictions
     ax_predictions = fig.add_subplot(1, 3, 1)
     predictions_plot = ax_predictions.imshow(predictions, vmin=vmin, vmax=vmax)
-    ax_predictions.set_title('Predictions')
+    ax_predictions.set_title("Predictions")
     fig.colorbar(predictions_plot)
 
     # Plot the raw GP predictions with their stddeviations
-    ax_gp = fig.add_subplot(1, 3, 2, projection='3d')
+    ax_gp = fig.add_subplot(1, 3, 2, projection="3d")
     ax_gp.plot_surface(
         X=grid_lon,
         Y=grid_lat,
@@ -140,43 +151,43 @@ def perform_extended_evaluation(model: Model, output_dir: str = '/results'):
         rcount=EVALUATION_GRID_POINTS_3D,
         ccount=EVALUATION_GRID_POINTS_3D,
         linewidth=0,
-        antialiased=False
+        antialiased=False,
     )
     ax_gp.set_zlim(vmin, vmax)
-    ax_gp.set_title('GP means, colors are GP stddev')
+    ax_gp.set_title("GP means, colors are GP stddev")
 
     # Plot the standard deviations
     ax_stddev = fig.add_subplot(1, 3, 3)
     stddev_plot = ax_stddev.imshow(gp_stddev, vmin=vmin, vmax=vmax_stddev)
-    ax_stddev.set_title('GP estimated stddev')
+    ax_stddev.set_title("GP estimated stddev")
     fig.colorbar(stddev_plot)
 
     # Save figure to pdf
-    figure_path = os.path.join(output_dir, 'extended_evaluation.pdf')
+    figure_path = os.path.join(output_dir, "extended_evaluation.pdf")
     fig.savefig(figure_path)
-    print(f'Saved extended evaluation to {figure_path}')
+    print(f"Saved extended evaluation to {figure_path}")
 
     plt.show()
 
 
 def main():
     # Load the training dateset and test features
-    train_x = np.loadtxt('train_x.csv', delimiter=',', skiprows=1)
-    train_y = np.loadtxt('train_y.csv', delimiter=',', skiprows=1)
-    test_x = np.loadtxt('test_x.csv', delimiter=',', skiprows=1)
+    train_x = np.loadtxt("train_x.csv", delimiter=",", skiprows=1)
+    train_y = np.loadtxt("train_y.csv", delimiter=",", skiprows=1)
+    test_x = np.loadtxt("test_x.csv", delimiter=",", skiprows=1)
 
     # Fit the model
-    print('Fitting model')
+    print("Fitting model")
     model = Model()
     model.fit_model(train_x, train_y)
 
     # Predict on the test features
-    print('Predicting on test features')
+    print("Predicting on test features")
     predicted_y = model.predict(test_x)
     print(predicted_y)
 
     if EXTENDED_EVALUATION:
-        perform_extended_evaluation(model, output_dir='.')
+        perform_extended_evaluation(model, output_dir=".")
 
 
 if __name__ == "__main__":
