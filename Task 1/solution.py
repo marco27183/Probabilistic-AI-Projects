@@ -39,8 +39,13 @@ class Model(object):
         self.rng = np.random.default_rng(seed=0)
 
         # TODO: Add custom initialization for your model here if necessary
-        kernel = Matern(nu=0.5)
-        self.gpm = GaussianProcessRegressor(kernel=RBF(), random_state=9)
+        self.kernel = DotProduct() + WhiteKernel()
+        self.gpm = GaussianProcessRegressor(
+            kernel=self.kernel,
+            n_restarts_optimizer=3,
+            normalize_y=True,
+            random_state=self.rng.integers(low=0, high=10, size=1)[0],
+        )
         self.feature_map_nystroem = Nystroem(gamma=0.2, random_state=9, n_components=20)
 
     def predict(
@@ -70,8 +75,12 @@ class Model(object):
         :param train_y: Training pollution concentrations as a 1d NumPy float array of shape (NUM_SAMPLES,)
         """
 
-        x_transformed = self.feature_map_nystroem.fit_transform(train_x)
-        self.gpm.fit(train_x, train_y)
+        random_subset = self.rng.integers(
+            low=0, high=len(train_y), size=int(0.5 * len(train_y))
+        )
+
+        # x_transformed = self.feature_map_nystroem.fit_transform(train_x)
+        self.gpm.fit(train_x[random_subset], train_y[random_subset])
 
 
 def cost_function(y_true: np.ndarray, y_predicted: np.ndarray) -> float:
