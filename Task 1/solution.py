@@ -65,11 +65,11 @@ class Model(object):
         gp_mean, gp_std = self.gpm.predict(x, return_std=True)
 
         # TODO: Use the GP posterior to form your predictions here
-        c = 0.01  # Constant to scale "jumps" for prediction adjustment
+        c = 0.1  # Constant to scale "jumps" for prediction adjustment
         predictions = gp_mean.copy()
         # If gp_mean - standard deviation is above the THRESHOLD, we reduce the prediction
         # to avoid the overprediction error costs
-        predictions[gp_mean - gp_std > THRESHOLD] = gp_mean - c * gp_std
+        np.where(gp_mean - c * gp_std > THRESHOLD, gp_mean - c * gp_std, gp_mean)
         # If gp_mean is slightly under the threshold (1 std below), we replace it with the threshold to avoid
         # the high costs for underpredicting
         predictions[
