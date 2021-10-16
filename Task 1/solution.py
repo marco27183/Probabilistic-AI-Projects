@@ -85,10 +85,6 @@ class Model(object):
         :param train_y: Training pollution concentrations as a 1d NumPy float array of shape (NUM_SAMPLES,)
         """
 
-        # random_subset = self.rng.integers(
-        #    low=0, high=len(train_y), size=int(0.5 * len(train_y))
-        # )
-
         # x_transformed = self.feature_map_nystroem.fit_transform(train_x)
         self.gpm.fit(train_x, train_y)
 
