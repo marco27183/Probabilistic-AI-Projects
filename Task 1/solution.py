@@ -39,10 +39,11 @@ class Model(object):
         self.rng = np.random.default_rng(seed=0)
 
         # TODO: Add custom initialization for your model here if necessary
-        self.kernel = DotProduct() + WhiteKernel()
+        # self.kernel = DotProduct() + WhiteKernel()
+        self.kernel = Matern(nu=0.5)
         self.gpm = GaussianProcessRegressor(
             kernel=self.kernel,
-            n_restarts_optimizer=3,
+            n_restarts_optimizer=0,
             normalize_y=True,
             random_state=self.rng.integers(low=0, high=10, size=1)[0],
         )
@@ -64,7 +65,16 @@ class Model(object):
         gp_mean, gp_std = self.gpm.predict(x, return_std=True)
 
         # TODO: Use the GP posterior to form your predictions here
-        predictions = gp_mean
+        c = 0.01  # Constant to scale "jumps" for prediction adjustment
+        predictions = gp_mean.copy()
+        # If gp_mean - standard deviation is above the THRESHOLD, we reduce the prediction
+        # to avoid the overprediction error costs
+        predictions[gp_mean - gp_std > THRESHOLD] = gp_mean - c * gp_std
+        # If gp_mean is slightly under the threshold (1 std below), we replace it with the threshold to avoid
+        # the high costs for underpredicting
+        predictions[
+            (THRESHOLD - gp_mean < c * gp_std) & (THRESHOLD - gp_mean > 0)
+        ] = THRESHOLD
 
         return predictions, gp_mean, gp_std
 
@@ -75,12 +85,12 @@ class Model(object):
         :param train_y: Training pollution concentrations as a 1d NumPy float array of shape (NUM_SAMPLES,)
         """
 
-        random_subset = self.rng.integers(
-            low=0, high=len(train_y), size=int(0.5 * len(train_y))
-        )
+        # random_subset = self.rng.integers(
+        #    low=0, high=len(train_y), size=int(0.5 * len(train_y))
+        # )
 
         # x_transformed = self.feature_map_nystroem.fit_transform(train_x)
-        self.gpm.fit(train_x[random_subset], train_y[random_subset])
+        self.gpm.fit(train_x, train_y)
 
 
 def cost_function(y_true: np.ndarray, y_predicted: np.ndarray) -> float:
