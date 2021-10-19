@@ -1,5 +1,6 @@
 import os
 import typing
+import sys
 
 from sklearn.gaussian_process.kernels import *
 import numpy as np
@@ -38,16 +39,18 @@ class Model(object):
         """
         self.rng = np.random.default_rng(seed=0)
 
+        self.c = 0.75  # Hyperparameter for cost function optimization: Constant to scale "jumps" for prediction adjustment
+
         # TODO: Add custom initialization for your model here if necessary
         # self.kernel = DotProduct() + WhiteKernel()
         self.kernel = Matern(nu=0.5)
+        # Init gaussian process regressor using defined kernel and normalize y
         self.gpm = GaussianProcessRegressor(
             kernel=self.kernel,
-            n_restarts_optimizer=0,
+            n_restarts_optimizer=4,
             normalize_y=True,
             random_state=self.rng.integers(low=0, high=10, size=1)[0],
         )
-        self.feature_map_nystroem = Nystroem(gamma=0.2, random_state=9, n_components=20)
 
     def predict(
         self, x: np.ndarray
@@ -65,15 +68,16 @@ class Model(object):
         gp_mean, gp_std = self.gpm.predict(x, return_std=True)
 
         # TODO: Use the GP posterior to form your predictions here
-        c = 1  # Constant to scale "jumps" for prediction adjustment
         predictions = gp_mean.copy()
         # If gp_mean - standard deviation is above the THRESHOLD, we reduce the prediction
         # to avoid the overprediction error costs
-        np.where(gp_mean - c * gp_std > THRESHOLD, gp_mean - c * gp_std, gp_mean)
+        np.where(
+            gp_mean - self.c * gp_std > THRESHOLD, gp_mean - self.c * gp_std, gp_mean
+        )
         # If gp_mean is slightly under the threshold (1 std below), we replace it with the threshold to avoid
         # the high costs for underpredicting
         predictions[
-            (THRESHOLD - gp_mean < c * gp_std) & (THRESHOLD - gp_mean > 0)
+            (THRESHOLD - gp_mean < self.c * gp_std) & (THRESHOLD - gp_mean > 0)
         ] = THRESHOLD
 
         return predictions, gp_mean, gp_std
@@ -87,6 +91,33 @@ class Model(object):
 
         # x_transformed = self.feature_map_nystroem.fit_transform(train_x)
         self.gpm.fit(train_x, train_y)
+
+    def optimize_Hyperparameter(self, test_x: np.ndarray, test_y: np.ndarray) -> float:
+        c_optim = self.c  # Init hyperparameter c
+        min_costs = sys.float_info.max  # Init min_costs with max float value
+        crt_costs = 0  # Init current costs with 0
+        c_params = np.linspace(
+            0.0, 2.0, num=22, endpoint=True
+        )  # Init a parameter space in which we search for the optimal c
+        # Iterate over all selected values for c to find value that minimizes cost function with "validation" set
+        for c_param in c_params:
+            self.c = c_param  # Set c to current value of c in iteration
+            crt_predictions = self.predict(test_x)[
+                0
+            ]  # predict using the current c-value and only return predictions
+            crt_costs = cost_function(
+                test_y, crt_predictions
+            )  # calculate costs using current c-value
+            print(
+                "costs for c=", c_param, "are", crt_costs
+            )  # Print results for easy review of convergence/behaviour
+            if crt_costs < min_costs:  # If costs are reduced, change optimal c-value
+                c_optim = c_param  # change optimal c-value
+                min_costs = crt_costs  # update min_costs
+        print(
+            "costs for c=", c_optim, "are", min_costs
+        )  # Print best parameter and related costs
+        self.c = c_optim  # Set c-parameter to optimal value
 
 
 def cost_function(y_true: np.ndarray, y_predicted: np.ndarray) -> float:
@@ -195,7 +226,20 @@ def main():
     # Fit the model
     print("Fitting model")
     model = Model()
-    model.fit_model(train_x, train_y)
+
+    # Select a random subset of the data to train model on and have a separate testset to compute score and optimize
+    # hyperparameters (weight for prediction optimization)
+    random_subset = model.rng.integers(
+        low=0, high=len(train_y), size=int(0.7 * len(train_y))
+    )
+
+    model.fit_model(train_x[random_subset][:], train_y[random_subset])
+
+    # Optimize Hyperparameters
+    model.optimize_Hyperparameter(
+        np.delete(train_x, random_subset, axis=0),
+        np.delete(train_y, random_subset, axis=0),
+    )
 
     # Predict on the test features
     print("Predicting on test features")
