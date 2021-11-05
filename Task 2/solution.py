@@ -205,7 +205,11 @@ class BayesianLayer(nn.Module):
         #  You can create constants using torch.tensor(...).
         #  Do NOT use torch.Parameter(...) here since the prior should not be optimized!
         #  Example: self.prior = MyPrior(torch.tensor(0.0), torch.tensor(1.0))
-        self.prior = UnivariateGaussian(torch.tensor(0.0), torch.tensor(1.0))
+
+        self.prior_mu = 0
+        self.prior_sigma = 1.0
+
+        self.prior = UnivariateGaussian(torch.tensor(self.prior_mu), torch.tensor(self.prior_sigma))
         assert isinstance(self.prior, ParameterDistribution)
         assert not any(
             True for _ in self.prior.parameters()
@@ -221,14 +225,9 @@ class BayesianLayer(nn.Module):
         #      torch.nn.Parameter(torch.zeros((out_features, in_features))),
         #      torch.nn.Parameter(torch.ones((out_features, in_features)))
         #  )
-        self.weights_var_posterior = MultivariateDiagonalGaussian(
-            torch.nn.Parameter(
-                torch.Tensor(out_features, in_features).normal_(0.0, 0.1),
-            ),
-            torch.nn.Parameter(
-                torch.Tensor(out_features, in_features).uniform_(-3.0, -3.0)
-            ),
-        )
+        self.weight_mu = torch.nn.Parameter(torch.zeros(out_features, in_features).uniform_(-0.0005, 0.0005))
+        self.weight_logsigma = torch.nn.Parameter(torch.zeros(out_features, in_features).uniform_(-2.56,-2.55))
+        self.weights_var_posterior = UnivariateGaussian(self.weight_mu,self.weight_logsigma)
 
         assert isinstance(self.weights_var_posterior, ParameterDistribution)
         assert any(
@@ -238,10 +237,9 @@ class BayesianLayer(nn.Module):
         if self.use_bias:
             # TODO: As for the weights, create the bias variational posterior instance here.
             #  Make sure to follow the same rules as for the weight variational posterior.
-            self.bias_var_posterior = MultivariateDiagonalGaussian(
-                torch.nn.Parameter(torch.Tensor(out_features).normal_(0.0, 0.1)),
-                torch.nn.Parameter(torch.Tensor(out_features).uniform_(-3.0, -3.0)),
-            )
+            self.bias_mu = torch.nn.Parameter(torch.zeros(out_features).normal_(-0.0005, 0.0005))
+            self.bias_logsigma = torch.nn.Parameter(torch.zeros(out_features).uniform_(-2.56,-2.55))
+            self.bias_var_posterior = UnivariateGaussian(self.bias_mu, self.bias_logsigma)
             assert isinstance(self.bias_var_posterior, ParameterDistribution)
             assert any(
                 True for _ in self.bias_var_posterior.parameters()
@@ -267,41 +265,31 @@ class BayesianLayer(nn.Module):
         #  and if yes, include the bias as well.
 
         # Obtain positive sigma from logsigma, as in paper
-        weight_sigma = torch.log(1.0 + torch.exp(self.weight_rho))
-        if self.use_bias:
-            bias_sigma = torch.log(1.0 + torch.exp(self.bias_rho))
+        weight_sigma = torch.log(1.0 + torch.exp(self.weight_rho))          
 
         # Sample weights and bias #
 
         # Weight sampling
+        normal_dist = UnivariateGaussian(torch.Tensor(0.0), torch.Tensor(1.0))
         ## Step 1 from paper
-        epsilon_weight = torch.autograd.Variable(
-            torch.Tensor(self.out_features, self.in_features).normal_(0.0, 1.0)
-        ).to(DEVICE)
+        epsilon_weight = normal_dist.sample()
         ## Step 2 of paper
         weights = self.weight_mu + weight_sigma * epsilon_weight
 
         # Bias sampling
         if self.use_bias:
+            bias_sigma = torch.log(1.0 + torch.exp(self.bias_rho))
             ## Step 1 from paper
-            epsilon_bias = torch.autograd.Variable(
-                torch.Tensor(self.out_features).normal_(0.0, 1.0)
-            ).to(DEVICE)
+            epsilon_bias = normal_dist.sample()
             ## Step 2 of paper
             bias = self.bias_mu + bias_sigma * epsilon_bias
+            # LOG PRIOR (WEIGHTS ONLY)
+            log_prior = torch.sum(self.prior.log_likelihood(weights)
+            log_variational_posterior = 
         else:
             bias = None
-
-        # Compute posterior and prior probabilities
-        log_prior = torch.log(
-            gaussian(weights, 0, self.SIGMA_1).sum()
-            + gaussian(bias, 0, self.SIGMA_1).sum()
-        )
-
-        log_variational_posterior = (
-            torch.log(gaussian(weights, self.weight_mu, weight_sigma)).sum()
-            + torch.log(gaussian(bias, self.bias_mu, bias_sigma)).sum()
-        )
+            log_prior = torch.log(gaussian(weights, 0, self.weight_sigma).sum())
+            log_variational_posterior = torch.log(gaussian(weights, self.weight_mu, weight_sigma)).sum())
 
         return F.linear(inputs, weights, bias), log_prior, log_variational_posterior
 
