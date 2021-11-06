@@ -420,11 +420,10 @@ class UnivariateGaussian(ParameterDistribution):
                 * torch.exp(-((values - self.mu) ** 2) / (2.0 * self.sigma ** 2))
             )
         )
-        return ll
+        return ll  # clip to avoid numerical issues
 
     def sample(self) -> torch.Tensor:
-        # TODO: Implement this
-        raise NotImplementedError()
+        return torch.distributions.Normal(self.mu, self.sigma).sample()
 
 
 class MultivariateDiagonalGaussian(ParameterDistribution):
@@ -445,12 +444,10 @@ class MultivariateDiagonalGaussian(ParameterDistribution):
         self.rho = rho
 
     def log_likelihood(self, values: torch.Tensor) -> torch.Tensor:
-        # TODO: Implement this
-        return 0.0
+        return torch.sum(torch.distributions.Normal(self.mu, self.rho).log_prob(values))
 
     def sample(self) -> torch.Tensor:
-        # TODO: Implement this
-        raise NotImplementedError()
+        return torch.distributions.Normal(self.mu, self.rho).sample(self.mu.size())
 
 
 def evaluate(
