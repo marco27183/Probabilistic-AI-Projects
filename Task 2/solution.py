@@ -180,7 +180,7 @@ class Model(object):
         return output
 
 
-class BayesianLayerOwn(nn.Module):
+class BayesianLayer(nn.Module):
     """
     Module implementing a single Bayesian feedforward layer.
     It maintains a prior and variational posterior for the weights (and biases)
@@ -298,7 +298,7 @@ class BayesianLayerOwn(nn.Module):
             ## Step 2 of paper
             bias = self.bias_mu + bias_sigma * epsilon_bias
 
-            # LOG PRIOR (WEIGHTS ONLY)
+            # Log prior with weights
             log_prior = self.prior.log_likelihood(weights) + self.prior.log_likelihood(
                 bias
             )
@@ -312,6 +312,7 @@ class BayesianLayerOwn(nn.Module):
             )
         else:
             bias = None
+            # Log prior without weights
             log_prior = self.prior.log_likelihood(weights)
             log_variational_posterior = MultivariateDiagonalGaussian(
                 self.weight_mu.data, crt_weight_sigma
@@ -369,6 +370,18 @@ class BayesNet(nn.Module):
         # TODO: Perform a full pass through your BayesNet as described in this method's docstring.
         #  You can look at DenseNet to get an idea how a forward pass might look like.
         #  Don't forget to apply your activation function in between BayesianLayers!
+        x = x.view(-1, self.inputSize)
+        layerNumber = 0
+        for i in range(self.activations.size):
+            if self.activations[i] == "relu":
+                x = F.relu(self.layers[layerNumber](x, infer))
+            elif self.activations[i] == "softmax":
+                x = F.log_softmax(self.layers[layerNumber](x, infer), dim=1)
+            else:
+                x = self.layers[layerNumber](x, infer)
+            layerNumber += 1
+        return x
+
         log_prior = torch.tensor(0.0)
         log_variational_posterior = torch.tensor(0.0)
         output_features = None
