@@ -180,7 +180,7 @@ class Model(object):
         return output
 
 
-class BayesianLayer(nn.Module):
+class BayesianLayerOwn(nn.Module):
     """
     Module implementing a single Bayesian feedforward layer.
     It maintains a prior and variational posterior for the weights (and biases)
@@ -207,7 +207,7 @@ class BayesianLayer(nn.Module):
         #  Example: self.prior = MyPrior(torch.tensor(0.0), torch.tensor(1.0))
 
         self.prior_mu = 0
-        self.prior_sigma = 1.0
+        self.prior_sigma = 0.1
 
         self.prior = UnivariateGaussian(
             torch.tensor(self.prior_mu), torch.tensor(self.prior_sigma)
@@ -227,14 +227,17 @@ class BayesianLayer(nn.Module):
         #      torch.nn.Parameter(torch.zeros((out_features, in_features))),
         #      torch.nn.Parameter(torch.ones((out_features, in_features)))
         #  )
+
         self.weight_mu = torch.nn.Parameter(
             torch.zeros(out_features, in_features).uniform_(-0.0005, 0.0005)
         )
+
         self.weight_logsigma = torch.nn.Parameter(
             torch.zeros(out_features, in_features).uniform_(-2.56, -2.55)
         )
-        self.weights_var_posterior = UnivariateGaussian(
-            self.weight_mu, self.weight_logsigma
+
+        self.weights_var_posterior = MultivariateDiagonalGaussian(
+            self.weight_mu, torch.exp(self.weight_logsigma)
         )
 
         assert isinstance(self.weights_var_posterior, ParameterDistribution)
@@ -246,13 +249,13 @@ class BayesianLayer(nn.Module):
             # TODO: As for the weights, create the bias variational posterior instance here.
             #  Make sure to follow the same rules as for the weight variational posterior.
             self.bias_mu = torch.nn.Parameter(
-                torch.zeros(out_features).normal_(-0.0005, 0.0005)
+                torch.zeros(out_features).uniform_(-0.0005, 0.0005)
             )
             self.bias_logsigma = torch.nn.Parameter(
                 torch.zeros(out_features).uniform_(-2.56, -2.55)
             )
-            self.bias_var_posterior = UnivariateGaussian(
-                self.bias_mu, self.bias_logsigma
+            self.bias_var_posterior = MultivariateDiagonalGaussian(
+                self.bias_mu, torch.exp(self.bias_logsigma)
             )
             assert isinstance(self.bias_var_posterior, ParameterDistribution)
             assert any(
@@ -277,42 +280,41 @@ class BayesianLayer(nn.Module):
         # TODO: Perform a forward pass as described in this method's docstring.
         #  Make sure to check whether `self.use_bias` is True,
         #  and if yes, include the bias as well.
-
+        torch.manual_seed(0)
         # Sample weights and bias #
-        crt_sigma = torch.exp(self.weight_logsigma)
+        crt_weight_sigma = torch.log(1 + torch.exp(self.weight_logsigma))
         # Weight sampling
-        normal_dist = UnivariateGaussian(torch.Tensor(0.0), torch.Tensor(1.0))
+        normal_dist = torch.distributions.Normal(0, 1)
         ## Step 1 from paper
-        epsilon_weight = normal_dist.sample()
+        epsilon_weight = normal_dist.sample(self.weight_mu.shape)
         ## Step 2 of paper
-        weights = self.weight_mu + torch.log(1.0 + crt_sigma * epsilon_weight)
+        weights = self.weight_mu + crt_weight_sigma * epsilon_weight
 
         # Bias sampling
         if self.use_bias:
             bias_sigma = torch.log(1.0 + torch.exp(self.bias_logsigma))
             ## Step 1 from paper
-            epsilon_bias = normal_dist.sample()
+            epsilon_bias = normal_dist.sample(self.bias_mu.shape)
             ## Step 2 of paper
             bias = self.bias_mu + bias_sigma * epsilon_bias
+
             # LOG PRIOR (WEIGHTS ONLY)
             log_prior = self.prior.log_likelihood(weights) + self.prior.log_likelihood(
                 bias
             )
             log_variational_posterior = (
-                UnivariateGaussian(self.weight_mu.data, crt_sigma).log_likelihood(
-                    weights
-                )
-                + torch.distributions.Normal(
-                    self.bias_mu.data, torch.log(1 + torch.exp(self.bias_logsigma))
-                )
+                MultivariateDiagonalGaussian(
+                    self.weight_mu, crt_weight_sigma
+                ).log_likelihood(weights)
+                + torch.distributions.Normal(self.bias_mu.data, bias_sigma)
                 .log_prob(bias)
                 .sum()
             )
         else:
             bias = None
             log_prior = self.prior.log_likelihood(weights)
-            log_variational_posterior = UnivariateGaussian(
-                self.weight_mu.data, crt_sigma
+            log_variational_posterior = MultivariateDiagonalGaussian(
+                self.weight_mu.data, crt_weight_sigma
             ).log_likelihood(weights)
 
         return F.linear(inputs, weights, bias), log_prior, log_variational_posterior
