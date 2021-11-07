@@ -370,21 +370,11 @@ class BayesNet(nn.Module):
         # TODO: Perform a full pass through your BayesNet as described in this method's docstring.
         #  You can look at DenseNet to get an idea how a forward pass might look like.
         #  Don't forget to apply your activation function in between BayesianLayers!
-        x = x.view(-1, self.inputSize)
-        layerNumber = 0
-        for i in range(self.activations.size):
-            if self.activations[i] == "relu":
-                x = F.relu(self.layers[layerNumber](x, infer))
-            elif self.activations[i] == "softmax":
-                x = F.log_softmax(self.layers[layerNumber](x, infer), dim=1)
-            else:
-                x = self.layers[layerNumber](x, infer)
-            layerNumber += 1
-        return x
+        for layer in self.layers:
+            linear, log_prior, log_variational_posterior = layer.forward(x)
+            x = self.activation(linear)
 
-        log_prior = torch.tensor(0.0)
-        log_variational_posterior = torch.tensor(0.0)
-        output_features = None
+        output_features = linear
 
         return output_features, log_prior, log_variational_posterior
 
