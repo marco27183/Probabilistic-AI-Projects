@@ -241,11 +241,11 @@ class BayesianLayer(nn.Module):
         #  )
 
         self.weight_mu = torch.nn.Parameter(
-            torch.zeros(out_features, in_features).uniform_(-0.0005, 0.0005)
+            torch.zeros(out_features, in_features).normal_(0.0, 0.1)
         )
 
         self.weight_logsigma = torch.nn.Parameter(
-            torch.zeros(out_features, in_features).uniform_(-2.56, -2.55)
+            torch.zeros(out_features, in_features).uniform_(-3.0, -3.0)
         )
 
         self.weights_var_posterior = MultivariateDiagonalGaussian(
@@ -261,10 +261,10 @@ class BayesianLayer(nn.Module):
             # TODO: As for the weights, create the bias variational posterior instance here.
             #  Make sure to follow the same rules as for the weight variational posterior.
             self.bias_mu = torch.nn.Parameter(
-                torch.zeros(out_features).uniform_(-0.0005, 0.0005)
+                torch.zeros(out_features).normal_(0.0, 0.1)
             )
             self.bias_logsigma = torch.nn.Parameter(
-                torch.zeros(out_features).uniform_(-2.56, -2.55)
+                torch.zeros(out_features).uniform_(-3.0, -3.0)
             )
             self.bias_var_posterior = MultivariateDiagonalGaussian(
                 self.bias_mu, torch.exp(self.bias_logsigma)
@@ -318,7 +318,7 @@ class BayesianLayer(nn.Module):
                 MultivariateDiagonalGaussian(
                     self.weight_mu, crt_weight_sigma
                 ).log_likelihood(weights)
-                + torch.distributions.Normal(self.bias_mu.data, bias_sigma)
+                + torch.distributions.Normal(self.bias_mu, bias_sigma)
                 .log_prob(bias)
                 .sum()
             )
@@ -327,7 +327,7 @@ class BayesianLayer(nn.Module):
             # Log prior without weights
             log_prior = self.prior.log_likelihood(weights)
             log_variational_posterior = MultivariateDiagonalGaussian(
-                self.weight_mu.data, crt_weight_sigma
+                self.weight_mu, crt_weight_sigma
             ).log_likelihood(weights)
 
         return F.linear(inputs, weights, bias), log_prior, log_variational_posterior
