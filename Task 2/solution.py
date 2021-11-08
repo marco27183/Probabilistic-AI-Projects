@@ -62,11 +62,11 @@ class Model(object):
     def __init__(self):
         # Hyperparameters and general parameters
         # You might want to play around with those
-        self.num_epochs = 100  # number of training epochs
+        self.num_epochs = 10  # number of training epochs
         self.batch_size = 128  # training batch size
-        learning_rate = 1e-3  # training learning rates
+        learning_rate = 5e-4  # training learning rates
         hidden_layers = (
-            100,
+            50,
             100,
         )  # for each entry, creates a hidden layer with the corresponding number of units
         use_densenet = (
@@ -292,7 +292,7 @@ class BayesianLayer(nn.Module):
         # TODO: Perform a forward pass as described in this method's docstring.
         #  Make sure to check whether `self.use_bias` is True,
         #  and if yes, include the bias as well.
-        torch.manual_seed(0)
+        # torch.manual_seed(0)
         # Sample weights and bias #
         crt_weight_sigma = torch.log(1 + torch.exp(self.weight_logsigma))
         # Weight sampling
