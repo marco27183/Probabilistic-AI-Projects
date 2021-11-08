@@ -138,6 +138,18 @@ class Model(object):
 
                     # TODO: Implement Bayes by backprop training here
 
+                    current_logits, log_prior, log_variational_posterior = self.network(
+                        batch_x
+                    )
+
+                    # log_likeli = torch.nn.CrossEntropyLoss(current_logits, batch_y)
+
+                    loss = F.nll_loss(
+                        F.log_softmax(current_logits, dim=1), batch_y, reduction="sum"
+                    ) + 1 / num_batches * (log_variational_posterior - log_prior)
+
+                    loss.backward()
+
                 self.optimizer.step()
 
                 # Update progress bar with accuracy occasionally
@@ -694,11 +706,11 @@ class DenseNet(nn.Module):
 
 
 def main():
-    raise RuntimeError(
-        "This main method is for illustrative purposes only and will NEVER be called by the checker!\n"
-        "The checker always calls run_solution directly.\n"
-        "Please implement your solution exclusively in the methods and classes mentioned in the task description."
-    )
+    # raise RuntimeError(
+    #    "This main method is for illustrative purposes only and will NEVER be called by the checker!\n"
+    #    "The checker always calls run_solution directly.\n"
+    #    "Please implement your solution exclusively in the methods and classes mentioned in the task description."
+    # )
 
     # Load training data
     data_dir = os.curdir
