@@ -13,7 +13,7 @@ from tqdm import trange
 from util import ece, ParameterDistribution
 
 # Set `EXTENDED_EVALUATION` to `True` in order to visualize your predictions.
-EXTENDED_EVALUATION = False
+EXTENDED_EVALUATION = True
 hasGPU = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if hasGPU else "cpu")
 
@@ -62,12 +62,12 @@ class Model(object):
     def __init__(self):
         # Hyperparameters and general parameters
         # You might want to play around with those
-        self.num_epochs = 10  # number of training epochs
+        self.num_epochs = 70  # number of training epochs
         self.batch_size = 128  # training batch size
-        learning_rate = 5e-4  # training learning rates
+        learning_rate = 5e-5  # training learning rates
         hidden_layers = (
-            50,
-            100,
+            90,
+            90,
         )  # for each entry, creates a hidden layer with the corresponding number of units
         use_densenet = (
             False  # set this to True in order to run a DenseNet for comparison
