@@ -5,6 +5,10 @@ import logging
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 import matplotlib.pyplot as plt
+from sklearn.gaussian_process.kernels import ConstantKernel, RBF
+from sklearn.gaussian_process import GaussianProcessRegressor
+from scipy.stats import norm
+import math
 
 EXTENDED_EVALUATION = False
 # Set `EXTENDED_EVALUATION` to `True` in order to visualize your predictions.
@@ -18,11 +22,14 @@ class BO_algo(object):
         """Initializes the algorithm with a parameter configuration. """
 
         # TODO: enter your code here
+        self.counter = 0
         self.previous_points = []
+        self.kernel_f = ConstantKernel(1.5, constant_value_bounds="fixed") * RBF(1.5, length_scale_bounds="fixed")
+        self.kernel_c = ConstantKernel(3.5, constant_value_bounds="fixed") * RBF(2, length_scale_bounds="fixed")
         # IMPORTANT: DO NOT REMOVE THOSE ATTRIBUTES AND USE sklearn.gaussian_process.GaussianProcessRegressor instances!
         # Otherwise, the extended evaluation will break.
-        self.constraint_model = None  # TODO : GP model for the constraint function
-        self.objective_model = None  # TODO : GP model for your acquisition function
+        self.constraint_model = GaussianProcessRegressor(kernel = self.kernel_c)  # TODO : GP model for the constraint function
+        self.objective_model = GaussianProcessRegressor(kernel = self.kernel_f)  # TODO : GP model for your acquisition function
 
     def next_recommendation(self) -> np.ndarray:
         """
@@ -36,6 +43,13 @@ class BO_algo(object):
 
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
+
+        if self.counter == 0:
+            x = np.array([[np.random.uniform(0,6)], [np.random.uniform(0,6)]]).reshape(1,2)
+        else:
+            x = self.optimize_acquisition_function()
+
+        return x
 
     def optimize_acquisition_function(self) -> np.ndarray:  # DON'T MODIFY THIS FUNCTION
         """
@@ -83,7 +97,23 @@ class BO_algo(object):
         """
 
         # TODO: enter your code here
-        raise NotImplementedError
+        #predict mu and sigma of new observation and compare with max of up to now observed values
+        #keep constraint in mind
+        
+        mu_f, sigma_f = self.objective_model.predict(x.reshape(-1, 2), return_std=True)
+        mu_c, sigma_c = self.constraint_model.predict(x.reshape(-1, 2), return_std=True)
+
+        mu_opt = np.max([row[2] for row in self.previous_points])
+
+        imp = mu_f - mu_opt
+        Z = imp / sigma_f
+
+        EI = imp * norm.cdf(Z) + sigma_f * norm.pdf(Z)
+        af_value = float(EI)
+
+        return af_value
+        
+        #raise NotImplementedError
 
     def add_data_point(self, x: np.ndarray, z: float, c: float):
         """
@@ -102,7 +132,18 @@ class BO_algo(object):
         assert x.shape == (1, 2)
         self.previous_points.append([float(x[:, 0]), float(x[:, 1]), float(z), float(c)])
         # TODO: enter your code here
-        raise NotImplementedError
+
+        X_1 = [row[0] for row in self.previous_points]
+        X_2 = [row[1] for row in self.previous_points]
+        X = np.column_stack((X_1, X_2))
+        y = [row[2] for row in self.previous_points]
+
+        self.counter += 1
+        
+        self.objective_model.fit(X,y)
+        self.constraint_model.fit(X,y)
+        
+        #raise NotImplementedError
 
     def get_solution(self) -> np.ndarray:
         """
@@ -115,7 +156,24 @@ class BO_algo(object):
         """
 
         # TODO: enter your code here
-        raise NotImplementedError
+
+        index = -1
+        max_f = -math.inf
+
+        X_1 = [row[0] for row in self.previous_points]
+        X_2 = [row[1] for row in self.previous_points]
+        X = np.column_stack((X_1, X_2))
+        f = [row[2] for row in self.previous_points]
+        c = [row[3] for row in self.previous_points]
+        
+        for i in range(self.counter):
+            if c[i] > 0 and f[i] > max_f:
+                max_f = f[i]
+                index = i
+                sol = X[index].reshape(1,2)
+        return sol
+        
+        #raise NotImplementedError
 
 
 """ 
