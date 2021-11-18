@@ -22,6 +22,7 @@ class BO_algo(object):
         """Initializes the algorithm with a parameter configuration. """
 
         # TODO: enter your code here
+        self.beta = 2
         self.counter = 0
         self.previous_points = []
         self.kernel_f = ConstantKernel(1.5, constant_value_bounds="fixed") * RBF(1.5, length_scale_bounds="fixed")
@@ -103,23 +104,53 @@ class BO_algo(object):
         mu_f, sigma_f = self.objective_model.predict(x.reshape(-1, 2), return_std=True)
         mu_c, sigma_c = self.constraint_model.predict(x.reshape(-1, 2), return_std=True)
 
-        mu_opt = np.max([row[2] for row in self.previous_points])
+        mu_opt = np.min([row[2] for row in self.previous_points])
 
         penalty = 3
 
+        xi = 0.025
 
 
-        imp = mu_f - mu_opt
-        Z = imp / sigma_f
+        enable_UCB = False
+        enable_EI = False
+        enable_CEI = True
 
-        EI = imp * norm.cdf(Z) + sigma_f * norm.pdf(Z)
+        if enable_UCB:
 
-        if mu_c + 0.2 * sigma_c >= 0:
-                af_value = float(EI - penalty)
-        else:
-                af_value = float(EI)
+            if mu_c + 2 * sigma_c >= 0:
+                    af_value = mu_f - sigma_f * self.beta - penalty
+            else:
+                    af_value = mu_f - sigma_f * self.beta
+                
+            return af_value
+
+
+        if enable_EI:
+
+            imp = mu_opt - mu_f - xi
+            Z = imp / sigma_f
+
+            EI = imp * norm.cdf(Z) + sigma_f * norm.pdf(Z)
+
+            if mu_c + 2 * sigma_c >= 0:
+                    af_value = float(EI - penalty)
+            else:
+                    af_value = float(EI)
         
-        return af_value
+            return af_value
+
+        if enable_CEI:
+
+            imp = mu_opt - mu_f - xi
+            Z = imp / sigma_f
+
+            EI = imp * norm.cdf(Z) + sigma_f * norm.pdf(Z)
+
+            pr = norm.cdf(0, loc=mu_c, scale=sigma_c)
+
+            af_value = EI * pr
+
+            return af_value
         
         #raise NotImplementedError
 
@@ -166,7 +197,7 @@ class BO_algo(object):
         # TODO: enter your code here
 
         index = -1
-        max_f = -math.inf
+        min_f = math.inf
 
         X_1 = [row[0] for row in self.previous_points]
         X_2 = [row[1] for row in self.previous_points]
@@ -177,8 +208,8 @@ class BO_algo(object):
         sol = np.array([[np.random.uniform(0,6)], [np.random.uniform(0,6)]]).reshape(1,2)
         
         for i in range(self.counter):
-            if c[i] < 0 and f[i] > max_f:
-                max_f = f[i]
+            if c[i] < 0 and f[i] < min_f:
+                min_f = f[i]
                 index = i
                 sol = X[index].reshape(1,2)
         return sol
