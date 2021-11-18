@@ -5,10 +5,13 @@ import logging
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 import matplotlib.pyplot as plt
-from sklearn.gaussian_process.kernels import ConstantKernel, RBF
+from sklearn.gaussian_process.kernels import ConstantKernel, RBF, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
 from scipy.stats import norm
 import math
+
+import warnings
+warnings.filterwarnings("ignore")
 
 EXTENDED_EVALUATION = False
 # Set `EXTENDED_EVALUATION` to `True` in order to visualize your predictions.
@@ -25,8 +28,8 @@ class BO_algo(object):
         self.beta = 2
         self.counter = 0
         self.previous_points = []
-        self.kernel_f = ConstantKernel(1.5, constant_value_bounds="fixed") * RBF(1.5, length_scale_bounds="fixed")
-        self.kernel_c = ConstantKernel(3.5, constant_value_bounds="fixed") * RBF(2, length_scale_bounds="fixed")
+        self.kernel_f = ConstantKernel(1.5) * RBF(1.5) #, length_scale_bounds="fixed" , constant_value_bounds="fixed"
+        self.kernel_c = ConstantKernel(3.5) * RBF(2) #, length_scale_bounds="fixed" , constant_value_bounds="fixed"
         # IMPORTANT: DO NOT REMOVE THOSE ATTRIBUTES AND USE sklearn.gaussian_process.GaussianProcessRegressor instances!
         # Otherwise, the extended evaluation will break.
         self.constraint_model = GaussianProcessRegressor(kernel = self.kernel_c)  # TODO : GP model for the constraint function
@@ -108,12 +111,13 @@ class BO_algo(object):
 
         penalty = 3
 
-        xi = 0.025
+        xi = 0.02
 
 
         enable_UCB = False
         enable_EI = False
         enable_CEI = True
+        enable_CUCB = False
 
         if enable_UCB:
 
@@ -122,6 +126,14 @@ class BO_algo(object):
             else:
                     af_value = mu_f - sigma_f * self.beta
                 
+            return af_value
+
+        if enable_CUCB:
+
+            pr = norm.cdf(0, loc=mu_c, scale=sigma_c)
+            ucb = mu_f - sigma_f * self.beta
+            af_value = ucb * pr
+
             return af_value
 
 
@@ -145,11 +157,17 @@ class BO_algo(object):
             Z = imp / sigma_f
 
             EI = imp * norm.cdf(Z) + sigma_f * norm.pdf(Z)
-
+            sigma_c = sigma_c
+            mu_c = mu_c
             pr = norm.cdf(0, loc=mu_c, scale=sigma_c)
 
-            af_value = EI * pr
+            if pr <= 0.9:
+                af_value = EI * pr
+            else:
+                af_value = EI * pr - penalty
 
+            #af_value = EI * pr
+            
             return af_value
         
         #raise NotImplementedError
