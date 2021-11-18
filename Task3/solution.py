@@ -105,12 +105,20 @@ class BO_algo(object):
 
         mu_opt = np.max([row[2] for row in self.previous_points])
 
+        penalty = 3
+
+
+
         imp = mu_f - mu_opt
         Z = imp / sigma_f
 
         EI = imp * norm.cdf(Z) + sigma_f * norm.pdf(Z)
-        af_value = float(EI)
 
+        if mu_c + 0.2 * sigma_c >= 0:
+                af_value = float(EI - penalty)
+        else:
+                af_value = float(EI)
+        
         return af_value
         
         #raise NotImplementedError
@@ -165,9 +173,11 @@ class BO_algo(object):
         X = np.column_stack((X_1, X_2))
         f = [row[2] for row in self.previous_points]
         c = [row[3] for row in self.previous_points]
+
+        sol = np.array([[np.random.uniform(0,6)], [np.random.uniform(0,6)]]).reshape(1,2)
         
         for i in range(self.counter):
-            if c[i] > 0 and f[i] > max_f:
+            if c[i] < 0 and f[i] > max_f:
                 max_f = f[i]
                 index = i
                 sol = X[index].reshape(1,2)
