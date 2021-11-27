@@ -161,7 +161,7 @@ class BO_algo(object):
             mu_c = mu_c
             pr = norm.cdf(0, loc=mu_c, scale=sigma_c)
 
-            if pr <= 0.9:
+            if pr <= 0.95:
                 af_value = EI * pr
             else:
                 af_value = EI * pr - penalty
