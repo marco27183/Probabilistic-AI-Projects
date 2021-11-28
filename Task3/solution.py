@@ -161,7 +161,7 @@ class BO_algo(object):
             mu_c = mu_c
             pr = norm.cdf(0, loc=mu_c, scale=sigma_c)
 
-            if pr <= 0.95:
+            if pr <= 0.9:
                 af_value = EI * pr
             else:
                 af_value = EI * pr - penalty
@@ -226,7 +226,7 @@ class BO_algo(object):
         sol = np.array([[np.random.uniform(0,6)], [np.random.uniform(0,6)]]).reshape(1,2)
         
         for i in range(self.counter):
-            if c[i] < 0 and f[i] < min_f:
+            if c[i] < (-((0.01)**2+(0.005)**2)) and f[i] < min_f: #5*((0.01)**2+(0.005)**2)
                 min_f = f[i]
                 index = i
                 sol = X[index].reshape(1,2)
