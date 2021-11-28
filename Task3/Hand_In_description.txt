@@ -1,1 +1,6 @@
-For this task, we based the code on the provided paper "Bayesian Optimization with Unknown Constraints" from Gelbart et. al. For the implementation of the "acquisition_function" we tested four different approaches, namely GP-UCB and GP-EI (Expected improvement) as well as their constraint versions. This means, that we computed the cdf of the contstraint under the predicted mu and sigma and deducted a penalty term if the probability of not fulfilling the constraint was high.
+For this task, we based the code on the provided paper "Bayesian Optimization with Unknown Constraints" from Gelbart et. al. 
+For the implementation of the "acquisition_function" we tested four different approaches, namely GP-UCB and GP-EI (Expected improvement) as well 
+as their constraint versions. This means, that we computed the cdf of the constraint under the predicted mu and sigma and deducted a penalty term 
+if the probability of not fulfilling the constraint was high. Finally, the solution was found iterating through all possible solutions and only
+returning the value if the constraint was fullfilled (based on provided c(x) that was earlier appended to the self.previous_points). For each new datapoint
+the gaussian process regression was updated (new .fit(X,y) call) and based on this new fit, the prediction for the next point was computed.
