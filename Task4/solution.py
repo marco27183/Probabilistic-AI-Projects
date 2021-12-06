@@ -293,7 +293,7 @@ class Agent:
         max_ep_len = 300
         # Discount factor for weighting future rewards
         gamma = 0.99
-        lam = 0.97
+        lam = 0.99 #0.97
 
         # Set up buffer
         buf = VPGBuffer(obs_dim, act_dim, steps_per_epoch, gamma, lam)
@@ -362,7 +362,7 @@ class Agent:
         # TODO3: Implement this function.
         # Currently, this just returns a random action.
 
-        action = self.ac.step(torch.as_tensor(obs, dtype=torch.float32))
+        action = self.ac.step(torch.as_tensor(obs, dtype=torch.float32))[0]
 
         return action
 
