@@ -165,9 +165,9 @@ class VPGBuffer:
         # Hint: For estimating the advantage function to use as phi, equation 
         # 16 in the GAE paper (see task description) will be helpful, and so will
         # the discout_cumsum function at the top of this file. 
-        
-        # deltas = rews[:-1] + ...
-        # self.phi_buf[path_slice] =
+
+        deltas = rews[:-1] + vals[1:] - vals[:-1] # r_t + value_{t+1} - value_t
+        self.phi_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
 
         #TODO4: currently the return is the total discounted reward for the whole episode. 
         # Replace this by computing the reward-to-go for each timepoint.
@@ -175,8 +175,8 @@ class VPGBuffer:
         
         # Old: self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[0] * np.ones(self.ptr-self.path_start_idx)
         
-        deltas = rews[:-1] + vals[1:] - vals[:-1]
-        self.ret_buf[path_slice] = discount_cumsum(deltas, self.gamma)
+        deltas_ret = rews[:-1] # r_t
+        self.ret_buf[path_slice] = discount_cumsum(deltas_ret, self.gamma)
 
         self.path_start_idx = self.ptr
 
