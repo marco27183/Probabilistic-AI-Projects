@@ -107,7 +107,7 @@ class MLPActorCritic(nn.Module):
         # `torch.no_grad` to ensure that it does not interfere with the gradient computation.
         
         with torch.no_grad():
-            pi, logp = self.pi._distribution(state)
+            pi, logp = self.pi(state)
             action_sample = pi.sample()
             value_func = self.v(state)
             _, logp = self.pi.forward(state, action_sample)
@@ -225,14 +225,14 @@ class Agent:
         self.pi_optimizer.zero_grad()
 
         #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
-        #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
+        #parameters is the policy gradient. Then call loss.backward() and pi_optimizer.step()
 
         # Definition of loss
-        pi, logp = self.ac.forward(obs, act)
+        pi, logp = self.ac.pi(obs, act)
         return_var = torch.autograd.Variable(ret.squeeze())
         loss = -(logp*return_var).mean() # See pdf
 
-        loss.backwards()
+        loss.backward()
 
         self.pi_optimizer.step()
 
@@ -350,7 +350,7 @@ class Agent:
         # TODO3: Implement this function.
         # Currently, this just returns a random action.
 
-        action = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
+        action = self.ac.step(torch.as_tensor(obs, dtype=torch.float32))
 
         return action
 
