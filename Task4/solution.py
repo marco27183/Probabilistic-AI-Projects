@@ -260,6 +260,14 @@ class Agent:
         # Before doing any computation, always call.zero_grad on the relevant optimizer
         self.v_optimizer.zero_grad()
 
+        # Multiple rounds of value function updates (100 as recommended)
+        for _ in range(100):
+            value_func = self.ac.v.forward(obs) # 
+            loss_func = nn.MSELoss() # Define loss function as MSE Loss
+            loss = loss_func(value_func, ret) # Compute loss based on current value and return from buffer
+            loss.backward() # Gradient
+            self.v_optimizer.step() # Step of optimization
+
         return
 
     def train(self):
@@ -280,7 +288,7 @@ class Agent:
         # Number of training steps per epoch
         steps_per_epoch = 3000
         # Number of epochs to train for
-        epochs = 50
+        epochs = 10 #50
         # The longest an episode can go on before cutting it off
         max_ep_len = 300
         # Discount factor for weighting future rewards
