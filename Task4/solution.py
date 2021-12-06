@@ -233,8 +233,8 @@ class Agent:
 
         # Definition of loss
         pi, logp = self.ac.pi(obs, act)
-        return_var = torch.autograd.Variable(ret.squeeze())
-        loss = -(logp*return_var).mean() # See pdf
+        phi = torch.autograd.Variable(phi.squeeze())
+        loss = -(logp*phi).mean() # See pdf
 
         loss.backward()
 
