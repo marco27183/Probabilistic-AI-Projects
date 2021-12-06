@@ -105,7 +105,15 @@ class MLPActorCritic(nn.Module):
         #    3. The log-probability of the action under the policy output distribution
         # Hint: This function is only called when interacting with the environment. You should use
         # `torch.no_grad` to ensure that it does not interfere with the gradient computation.
-        return 0, 0, 0
+        
+        with torch.no_grad():
+            pi, logp = self.pi._distribution(state)
+            action_sample = pi.sample()
+            value_func = self.v(state)
+            _, logp = self.pi.forward(state, action_sample)
+        if action_sample.dim() == 0:
+            action_sample = action_sample.item()
+        return action_sample, value_func, logp
 
 
 class VPGBuffer:
@@ -218,6 +226,15 @@ class Agent:
 
         #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
         #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
+
+        # Definition of loss
+        pi, logp = self.ac.forward(obs, act)
+        return_var = torch.autograd.Variable(ret.squeeze())
+        loss = -(logp*return_var).mean() # See pdf
+
+        loss.backwards()
+
+        self.pi_optimizer.step()
 
         return
 
@@ -332,7 +349,10 @@ class Agent:
         """
         # TODO3: Implement this function.
         # Currently, this just returns a random action.
-        return np.random.choice([0, 1, 2, 3])
+
+        action = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
+
+        return action
 
 
 def main():
