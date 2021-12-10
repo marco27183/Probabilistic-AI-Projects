@@ -206,8 +206,8 @@ class Agent:
         self.ac = MLPActorCritic(hidden_sizes=[self.hid]*self.l)
 
         # Learning rates for policy and value function
-        pi_lr = 3e-3
-        vf_lr = 1e-3
+        pi_lr = 10e-3 #3e-3
+        vf_lr = 5e-3 #1e-3
 
         # we will use the Adam optimizer to update value function and policy
         self.pi_optimizer = Adam(self.ac.pi.parameters(), lr=pi_lr)
@@ -293,7 +293,7 @@ class Agent:
         max_ep_len = 300
         # Discount factor for weighting future rewards
         gamma = 0.99
-        lam = 0.99 #0.97
+        lam = 0.97 #0.97
 
         # Set up buffer
         buf = VPGBuffer(obs_dim, act_dim, steps_per_epoch, gamma, lam)
