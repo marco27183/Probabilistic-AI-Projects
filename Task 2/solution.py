@@ -12,7 +12,6 @@ from tqdm import trange
 
 from util import ece, ParameterDistribution
 
-# Set `EXTENDED_EVALUATION` to `True` in order to visualize your predictions.
 EXTENDED_EVALUATION = True
 hasGPU = torch.cuda.is_available()
 DEVICE = torch.device("cuda" if hasGPU else "cpu")
@@ -24,10 +23,7 @@ def run_solution(
     output_dir: str = "/results/",
 ) -> "Model":
     """
-    Run your task 2 solution.
-    This method should train your model, evaluate it, and return the trained model at the end.
-    Make sure to preserve the method signature and to return your trained model,
-    else the checker will fail!
+    This method trains your model, evaluates it, and returns the trained model at the end.
 
     :param dataset_train: Training dataset
     :param data_dir: Directory containing the datasets
@@ -48,20 +44,13 @@ def run_solution(
     )
     evaluate(model, eval_loader, data_dir, output_dir)
 
-    # IMPORTANT: return your model here!
     return model
 
 
 class Model(object):
-    """
-    Task 2 model that can be used to train a BNN using Bayes by backprop and create predictions.
-    You need to implement all methods of this class without changing their signature,
-    else the checker will fail!
-    """
 
     def __init__(self):
         # Hyperparameters and general parameters
-        # You might want to play around with those
         self.num_epochs = 70  # number of training epochs
         self.batch_size = 128  # training batch size
         learning_rate = 5e-5  # training learning rates
@@ -91,16 +80,15 @@ class Model(object):
             )
 
         # Optimizer for training
-        # Feel free to try out different optimizers
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
 
     def train(self, dataset: torch.utils.data.Dataset):
         """
-        Train your neural network.
+        Train neural network.
         If the network is a DenseNet, this performs normal stochastic gradient descent training.
         If the network is a BayesNet, this should perform Bayes by backprop.
 
-        :param dataset: Dataset you should use for training
+        :param dataset: Dataset for training
         """
 
         train_loader = torch.utils.data.DataLoader(
@@ -124,7 +112,7 @@ class Model(object):
                     current_logits = self.network(batch_x)
 
                     # Calculate the loss
-                    # We use the negative log likelihood as the loss
+                    # Negative log likelihood as loss
                     # Combining nll_loss with a log_softmax is better for numeric stability
                     loss = F.nll_loss(
                         F.log_softmax(current_logits, dim=1), batch_y, reduction="sum"
@@ -135,8 +123,6 @@ class Model(object):
                 else:
                     # BayesNet training step via Bayes by backprop
                     assert isinstance(self.network, BayesNet)
-
-                    # TODO: Implement Bayes by backprop training here
 
                     current_logits, log_prior, log_variational_posterior = self.network(
                         batch_x
@@ -168,8 +154,8 @@ class Model(object):
 
     def predict(self, data_loader: torch.utils.data.DataLoader) -> np.ndarray:
         """
-        Predict the class probabilities using your trained model.
-        This method should return an (num_samples, 10) NumPy float array
+        Predict the class probabilities using trained model.
+        This method returns an (num_samples, 10) NumPy float array
         such that the second dimension sums up to 1 for each row.
 
         :param data_loader: Data loader yielding the samples to predict on
@@ -212,12 +198,6 @@ class BayesianLayer(nn.Module):
         self.out_features = out_features
         self.use_bias = bias
 
-        # TODO: Create a suitable prior for weights and biases as an instance of ParameterDistribution.
-        #  You can use the same prior for both weights and biases, but are free to experiment with different priors.
-        #  You can create constants using torch.tensor(...).
-        #  Do NOT use torch.Parameter(...) here since the prior should not be optimized!
-        #  Example: self.prior = MyPrior(torch.tensor(0.0), torch.tensor(1.0))
-
         self.prior_mu = 0
         self.prior_sigma = 0.1
 
@@ -228,17 +208,6 @@ class BayesianLayer(nn.Module):
         assert not any(
             True for _ in self.prior.parameters()
         ), "Prior cannot have parameters"
-
-        # TODO: Create a suitable variational posterior for weights as an instance of ParameterDistribution.
-        #  You need to create separate ParameterDistribution instances for weights and biases,
-        #  but can use the same family of distributions if you want.
-        #  IMPORTANT: You need to create a nn.Parameter(...) for each parameter
-        #  and add those parameters as an attribute in the ParameterDistribution instances.
-        #  If you forget to do so, PyTorch will not be able to optimize your variational posterior.
-        #  Example: self.weights_var_posterior = MyPosterior(
-        #      torch.nn.Parameter(torch.zeros((out_features, in_features))),
-        #      torch.nn.Parameter(torch.ones((out_features, in_features)))
-        #  )
 
         self.weight_mu = torch.nn.Parameter(
             torch.zeros(out_features, in_features).normal_(0.0, 0.1)
@@ -258,8 +227,6 @@ class BayesianLayer(nn.Module):
         ), "Weight posterior must have parameters"
 
         if self.use_bias:
-            # TODO: As for the weights, create the bias variational posterior instance here.
-            #  Make sure to follow the same rules as for the weight variational posterior.
             self.bias_mu = torch.nn.Parameter(
                 torch.zeros(out_features).normal_(0.0, 0.1)
             )
@@ -279,9 +246,6 @@ class BayesianLayer(nn.Module):
     def forward(self, inputs: torch.Tensor):
         """
         Perform one forward pass through this layer.
-        If you need to sample weights from the variational posterior, you can do it here during the forward pass.
-        Just make sure that you use the same weights to approximate all quantities
-        present in a single Bayes by backprop sampling step.
 
         :param inputs: Flattened input images as a (batch_size, in_features) float tensor
         :return: 3-tuple containing
@@ -289,10 +253,7 @@ class BayesianLayer(nn.Module):
             ii) sample of the log-prior probability, and
             iii) sample of the log-variational-posterior probability
         """
-        # TODO: Perform a forward pass as described in this method's docstring.
-        #  Make sure to check whether `self.use_bias` is True,
-        #  and if yes, include the bias as well.
-        # torch.manual_seed(0)
+        
         # Sample weights and bias #
         crt_weight_sigma = torch.log(1 + torch.exp(self.weight_logsigma))
         # Weight sampling
@@ -379,9 +340,6 @@ class BayesNet(nn.Module):
             iii) sample of the log-variational-posterior probability
         """
 
-        # TODO: Perform a full pass through your BayesNet as described in this method's docstring.
-        #  You can look at DenseNet to get an idea how a forward pass might look like.
-        #  Don't forget to apply your activation function in between BayesianLayers!
         for layer in self.layers:
             linear, log_prior, log_variational_posterior = layer.forward(x)
             x = self.activation(linear)
@@ -453,7 +411,7 @@ class MultivariateDiagonalGaussian(ParameterDistribution):
     def __init__(self, mu: torch.Tensor, rho: torch.Tensor):
         super(
             MultivariateDiagonalGaussian, self
-        ).__init__()  # always make sure to include the super-class init call!
+        ).__init__()
         assert mu.size() == rho.size()
         self.mu = mu
         self.rho = rho
@@ -472,7 +430,7 @@ def evaluate(
     output_dir: str,
 ):
     """
-    Evaluate your model.
+    Evaluate model.
     :param model: Trained model to evaluate
     :param eval_loader: Data loader containing the training set for evaluation
     :param data_dir: Data directory from which additional datasets are loaded
@@ -595,7 +553,7 @@ def evaluate(
         fmnist_confidences = np.max(fmnist_predicted_probabilities, axis=1)
         fmnist_sorted_confidence_indices = np.argsort(fmnist_confidences)
 
-        # Plot FashionMNIST samples your model is most confident about
+        # Plot FashionMNIST samples model is most confident about
         print("Plotting most confident FashionMNIST predictions")
         most_confident_indices = fmnist_sorted_confidence_indices[-10:]
         fig, ax = plt.subplots(4, 5, figsize=(13, 11))
@@ -617,7 +575,7 @@ def evaluate(
         fig.suptitle("Most confident predictions", size=20)
         fig.savefig(os.path.join(output_dir, "fashionmnist_most_confident.pdf"))
 
-        # Plot FashionMNIST samples your model is least confident about
+        # Plot FashionMNIST samples model is least confident about
         print("Plotting least confident FashionMNIST predictions")
         least_confident_indices = fmnist_sorted_confidence_indices[:10]
         fig, ax = plt.subplots(4, 5, figsize=(13, 11))
@@ -657,8 +615,6 @@ def evaluate(
 class DenseNet(nn.Module):
     """
     Simple module implementing a feedforward neural network.
-    You can use this model as a reference/baseline for calibration
-    in the normal neural network case.
     """
 
     def __init__(
@@ -706,12 +662,6 @@ class DenseNet(nn.Module):
 
 
 def main():
-    # raise RuntimeError(
-    #    "This main method is for illustrative purposes only and will NEVER be called by the checker!\n"
-    #    "The checker always calls run_solution directly.\n"
-    #    "Please implement your solution exclusively in the methods and classes mentioned in the task description."
-    # )
-
     # Load training data
     data_dir = os.curdir
     output_dir = os.curdir
